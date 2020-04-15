@@ -1,0 +1,17 @@
+Name: DatagramSemantics
+Version: 0.1
+Synopsis: A library about handling the programming language semantics
+Authors: Giacomo Bergami <bergamigiacomo@gmail.com>
+License: LGPL with OCaml linking exception
+
+Description: A library about handling the programming language semantics
+Homepage: http://jackbergus.github.io
+
+OASISFormat: 0.4
+BuildTools: ocamlbuild
+Plugins: META (0.4), DevFiles (0.4)
+
+Library "languagelibrary"
+ Path: src
+ Modules: Basics, Term, Term2, Term2Operations, TermSemantics, Database
+ BuildDepends: str
