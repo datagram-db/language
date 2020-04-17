@@ -46,7 +46,7 @@ type term2 = SBol of bool
            | SFFunApply of term2 * term2
            | SIfte of term2 * term2 * term2
 
-(* Simplifying the term into a better representation, even though it is less typed *)
+(** Simplifying the term into a better representation, even though it is less typed *)
 let to_term2 x = 
 	let rec rewrite = function
         | Var (Variable x) -> SVar x

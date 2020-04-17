@@ -1,68 +1,85 @@
 open Basics
 open Term
+open Term2
 
 (** Defining the semantics: the value will be the final value **)
-type term_sem = SBol of bool 
-              | SInt of int
-              | SFlt of float
-              | SStr of string
-              | SFunc of (string * basic_types) list * term (* lazy function *)
-              | SLst of term_sem list
-              | SFFunc of (term_sem * term_sem) list
-              
+type term_sem = TSBol of bool 
+              | TSInt of int
+              | TSFlt of float
+              | TSStr of string
+              | TSFunc of string list * term2 (* lazy function *)
+              | TSLst of term_sem list
+              | TSFFunc of (term_sem * term_sem) list
 
+let rec tsfunc_to_sfunc sl t = match sl with 
+| []     -> t
+| hd::tl -> SFunc(hd, tsfunc_to_sfunc tl t)
+
+let rec term_sem_to2 = function
+| TSBol b     -> SBol b
+| TSInt i     -> SInt i
+| TSFlt f     -> SFlt f
+| TSStr s     -> SStr s
+| TSFunc(x,y) -> tsfunc_to_sfunc x y
+| TSLst l     -> SLst (List.map term_sem_to2 l)
+| TSFFunc l   -> SFFunc (List.map (fun (x,y) -> (term_sem_to2 x,term_sem_to2 y)) l)
+ 
 (* Basic Semantic Functions *)
 
+exception UnexpectedType of string
+
 let sem_and x y = match (x,y) with
-| (SBol true, SBol true) -> true
-| (SBol _, SBol _) -> false
+| (TSBol true, TSBol true) -> true
+| (TSBol _, TSBol _) -> false
 | _ -> raise (UnexpectedType "And function run over non-boolean elements")
 
 let sem_or x y = match (x,y) with 
-| (SBol false, SBol false) -> false
-| (SBol _, SBol _) -> true
+| (TSBol false, TSBol false) -> false
+| (TSBol _, TSBol _) -> true
 | _ -> raise (UnexpectedType "Or function run over non-boolean elements")
 
+(*
 let sem_xor x y = match (x,y) with 
-| (SBol true, SBol false) -> true
-| (SBol false, SBol true) -> true
-| (SBol _, SBol _) -> true
-| _ -> raise (UnexpectedType "Or function run over non-boolean elements")
+| (TSBol true, TSBol false) -> true
+| (TSBol false, TSBol true) -> true
+| (TSBol _, TSBol _) -> true
+| _ -> raise (UnexpectedType "Or function run over non-boolean elements")*)
+
 
 let getBolBinOpFunction = function
 | BoolAnd -> sem_and 
 | BoolOr -> sem_or
 
 let sem_sum x y = match (x,y) with
-| (SInt i, SInt j) -> SInt (i+j)
-| (SFlt i, SFlt j) -> SFlt (i+.j)
+| (TSInt i, TSInt j) -> TSInt (i+j)
+| (TSFlt i, TSFlt j) -> TSFlt (i+.j)
 | _ -> raise (UnexpectedType "IntegerSum function run over non-integer elements")
 
 let sem_div x y = match (x,y) with
-| (SInt i, SInt j) -> SInt (i/j)
-| (SFlt i, SFlt j) -> SFlt (i/.j)
+| (TSInt i, TSInt j) -> TSInt (i/j)
+| (TSFlt i, TSFlt j) -> TSFlt (i/.j)
 | _ -> raise (UnexpectedType "IntegerSum function run over non-integer elements")
 
 let sem_sub x y = match (x,y) with
-| (SInt i, SInt j) -> SInt (i-j)
-| (SFlt i, SFlt j) -> SFlt (i-.j)
+| (TSInt i, TSInt j) -> TSInt (i-j)
+| (TSFlt i, TSFlt j) -> TSFlt (i-.j)
 | _ -> raise (UnexpectedType "IntegerSum function run over non-integer elements")
 
 let sem_mod x y = match (x,y) with
-| (SInt i, SInt j) -> SInt (i mod j)
+| (TSInt i, TSInt j) -> TSInt (i mod j)
 | _ -> raise (UnexpectedType "IntegerSum function run over non-integer elements")
 
 let sem_prod x y = match (x,y) with
-| (SInt i, SInt j) -> SInt (i * j)
-| (SFlt i, SFlt j) -> SFlt (i/.j)
+| (TSInt i, TSInt j) -> TSInt (i * j)
+| (TSFlt i, TSFlt j) -> TSFlt (i/.j)
 | _ -> raise (UnexpectedType "IntegerSum function run over non-integer elements")
 
 let sem_pow x y = match (x,y) with
-| (SFlt i, SFlt j) -> SFlt (Float.pow i j)
+| (TSFlt i, TSFlt j) -> TSFlt (Float.pow i j)
 | _ -> raise (UnexpectedType "IntegerSum function run over non-integer elements")
 
 let sem_log x y = match (x,y) with
-| (SFlt i, SFlt j) -> SFlt ((Float.log i) /. (Float.log j))
+| (TSFlt i, TSFlt j) -> TSFlt ((Float.log i) /. (Float.log j))
 | _ -> raise (UnexpectedType "IntegerSum function run over non-integer elements")
 
 let getIntBinOpFunction = function
@@ -82,19 +99,19 @@ let getFltBinOpFunction = function
 
 
 let sem_sin x = match (x) with
-| (SFlt i) -> SFlt (Float.sin i)
+| (TSFlt i) -> TSFlt (Float.sin i)
 | _ -> raise (UnexpectedType "IntegerSum function run over non-integer elements")
 
 let sem_cos x = match (x) with
-| (SFlt i) -> SFlt (Float.cos i)
+| (TSFlt i) -> TSFlt (Float.cos i)
 | _ -> raise (UnexpectedType "IntegerSum function run over non-integer elements")
 
 let sem_tan x = match (x) with
-| (SFlt i) -> SFlt (Float.tan i)
+| (TSFlt i) -> TSFlt (Float.tan i)
 | _ -> raise (UnexpectedType "IntegerSum function run over non-integer elements")
 
 let sem_sqrt x = match (x) with
-| (SFlt i) -> SFlt (Float.sqrt i)
+| (TSFlt i) -> TSFlt (Float.sqrt i)
 | _ -> raise (UnexpectedType "IntegerSum function run over non-integer elements")
 
 let getFltMonOpFunction = function
@@ -104,19 +121,19 @@ let getFltMonOpFunction = function
 | FltSqrt -> sem_sqrt
 
 let sem_floor x = match (x) with
-| (SFlt i) -> SInt (int_of_float (floor i))
+| (TSFlt i) -> TSInt (int_of_float (floor i))
 | _ -> raise (UnexpectedType "IntegerSum function run over non-integer elements")
 
 let sem_ceil x = match (x) with
-| (SFlt i) -> SInt (int_of_float (ceil i))
+| (TSFlt i) -> TSInt (int_of_float (ceil i))
 | _ -> raise (UnexpectedType "IntegerSum function run over non-integer elements")
 
 let sem_trunc x = match (x) with
-| (SFlt i) -> SInt (int_of_float (Float.trunc i))
+| (TSFlt i) -> TSInt (int_of_float (Float.trunc i))
 | _ -> raise (UnexpectedType "IntegerSum function run over non-integer elements")
 
 let sem_round x = match (x) with
-| (SFlt i) -> SInt (int_of_float (Float.round i))
+| (TSFlt i) -> TSInt (int_of_float (Float.round i))
 | _ -> raise (UnexpectedType "IntegerSum function run over non-integer elements")
 
 let getFltMonToIntOpFunction = function
@@ -126,39 +143,39 @@ let getFltMonToIntOpFunction = function
 | FltRound -> sem_round
 
 let sem_append x y = match (x,y) with
-| (SStr a, SStr b) -> SStr (a^b)
-| (SLst a, SLst b) -> SLst (a@b)
+| (TSStr a, TSStr b) -> TSStr (a^b)
+| (TSLst a, TSLst b) -> TSLst (a@b)
 | _ -> raise (UnexpectedType "Append function run over non-string elements")
 
 let sem_replace x y z = match (x,y,z) with
-| (SStr a, SStr b, SStr c) -> SStr (Str.global_replace (Str.regexp a) b c)
+| (TSStr a, TSStr b, TSStr c) -> TSStr (Str.global_replace (Str.regexp a) b c)
 | _ -> raise (UnexpectedType "Replace function run over non-string elements")
 
 let getStrBinOp = function
 | StrAppend -> sem_append 
-| StrSub -> fun x -> fun y-> sem_replace x (SStr "") y
+| StrSub -> fun x -> fun y-> sem_replace x (TSStr "") y
 
 
 let sem_get x y = match (x,y) with
-| (SStr a, SInt b) -> SStr (String.make 1 (String.get a b))
-| (SLst a, SInt b) -> List.nth a b
+| (TSStr a, TSInt b) -> TSStr (String.make 1 (String.get a b))
+| (TSLst a, TSInt b) -> List.nth a b
 | _ -> raise (UnexpectedType "Replace function run over non-sequence elements")
 
 let sem_rem x y = match (x,y) with
-| (SStr a, SInt b) -> SStr 
+| (TSStr a, TSInt b) -> TSStr 
                           (let len = String.length a in
                            if (b >= len) then a else (if (b == 0) then (String.sub a 1 ((String.length a)-1)) else 
                                                       (if (b == (len -1)) then (String.sub a 0 ((String.length a)-1)) else (String.sub a 0 b)^(String.sub a (b+1) (len-b-1)))
                                                      )
                           )
-| (SLst a, SInt b) -> (let rec remnth i = function
+| (TSLst a, TSInt b) -> (let rec remnth i = function
                       | [] -> []
                       | a::b -> if (i <= 0) then b else a::(remnth (i-1) b) in
-                      SLst (remnth b a))
+                      TSLst (remnth b a))
 | _ -> raise (UnexpectedType "Replace function run over non-sequence elements")
 
 let sem_rem_val x y = match (x,y) with
-| (SLst a, t) -> List.filter (fun z-> not (z == t)) a
+| (TSLst a, t) -> List.filter (fun z-> not (z == t)) a
 | _ -> raise (UnexpectedType "Replace function run over non-sequence elements")
 
 let getStrIntBinOPFunction = function
@@ -170,7 +187,7 @@ let rec list_cross x = function
 | hd::tl -> (List.map (fun y-> [y;hd]) x)@(list_cross x tl)
 
 let sem_cross x y = match (x,y) with
-| (SLst a, SLst b) -> SLst (List.map (fun z -> SLst z) (list_cross a b))
+| (TSLst a, TSLst b) -> TSLst (List.map (fun z -> TSLst z) (list_cross a b))
 | _ -> raise (UnexpectedType "Replace function run over non-sequence elements")
 
 let getListBinOpFunction = function
@@ -178,37 +195,38 @@ let getListBinOpFunction = function
 | ListCross -> sem_cross
 
 let sem_tail x = match x with
-| SLst (hd::tl) -> SLst tl
-| SLst _ -> SLst []
+| TSLst (hd::tl) -> TSLst tl
+| TSLst _ -> TSLst []
 | _ -> raise (UnexpectedType "Replace function run over non-sequence elements")
 
+
 let sem_uniq x = match x with
-| SLst s -> SLst (remove_duplicates s)
+| TSLst s -> TSLst (remove_duplicates s)
 | _ -> raise (UnexpectedType "Replace function run over non-sequence elements")
 
 let getListMonOpFunction = function
 | ListTail -> sem_tail
 | ListUnique -> sem_uniq
 
-let sem_contains x y = function
-| (SLst a, y) -> SBol (List.memq y a)
-| (SStr a, SStr b) -> SBol ((try Str.search_forward (Str.regexp b) a 0 with _ -> -1) >= 0)
-| (SFFunc f, x) -> SBol (List.exists (fun (z,_) -> z == x) f)
+let sem_contains x y = match (x,y) with
+| (TSLst a, y) -> TSBol (List.memq y a)
+| (TSStr a, TSStr b) -> TSBol ((try Str.search_forward (Str.regexp b) a 0 with _ -> -1) >= 0)
+| (TSFFunc f, x) -> TSBol (List.exists (fun (z,_) -> z == x) f)
 | _ -> raise (UnexpectedType "Replace function run over non-sequence elements")
 
 
 let sem_set x y t = match (x,y,t) with
-| (SStr a, SInt b,SStr c) -> SStr 
+| (TSStr a, TSInt b,TSStr c) -> TSStr 
                           (let len = String.length a in
                            let charo = (String.make 1 (String.get c 0)) in 
                            if (b >= len) then a else (if (b == 0) then charo^(String.sub a 1 ((String.length a)-1)) else 
                                                       (if (b == (len -1)) then (String.sub a 0 ((String.length a)-1))^charo else (String.sub a 0 b)^charo^(String.sub a (b+1) (len-b-1)))
                                                      )
                           )
-| (SLst a, SInt b, c) -> (let rec remnth i = function
+| (TSLst a, TSInt b, c) -> (let rec remnth i = function
                       | [] -> []
                       | a::b -> if (i <= 0) then c::b else a::(remnth (i-1) b) in
-                      SLst (remnth b a))
+                      TSLst (remnth b a))
 | _ -> raise (UnexpectedType "Replace function run over non-sequence elements")
 
 let rec ffextend input output = function
@@ -256,10 +274,10 @@ let list_at (g: environment) i = function
 
 let rec eval (g : environment) = function
 | Var (Variable x) -> get_environment_term g x
-| TermBol (Bol b) -> SBol b
+| TermBol (Bol b) -> TSBol b
 | TermBol (t) -> eval g (TermBol (eval g t)) 
 | TermBol (BolBinOp (op,x,y)) -> (match (eval g (TermBol x), eval g (TermBol y)) with
-                                 | (SBol true, SBol true) -> 
+                                 | (TSBol true, TSBol true) -> 
                                              
                                              
 
