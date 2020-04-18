@@ -3,7 +3,7 @@ open Term
 open Term2
 
 (** Defining the semantics: the value will be the final value **)
-type term_sem = TSBol of bool 
+type term_sem = TSBol of bool
               | TSInt of int
               | TSFlt of float
               | TSStr of string
@@ -11,7 +11,7 @@ type term_sem = TSBol of bool
               | TSLst of term_sem list
               | TSFFunc of (term_sem * term_sem) list
 
-let rec tsfunc_to_sfunc sl t = match sl with 
+let rec tsfunc_to_sfunc sl t = match sl with
 | []     -> t
 | hd::tl -> SFunc(hd, tsfunc_to_sfunc tl t)
 
@@ -23,7 +23,7 @@ let rec term_sem_to2 = function
 | TSFunc(x,y) -> tsfunc_to_sfunc x y
 | TSLst l     -> SLst (List.map term_sem_to2 l)
 | TSFFunc l   -> SFFunc (List.map (fun (x,y) -> (term_sem_to2 x,term_sem_to2 y)) l)
- 
+
 (* Basic Semantic Functions *)
 
 exception UnexpectedType of string
@@ -33,13 +33,13 @@ let sem_and x y = match (x,y) with
 | (TSBol _, TSBol _) -> false
 | _ -> raise (UnexpectedType "And function run over non-boolean elements")
 
-let sem_or x y = match (x,y) with 
+let sem_or x y = match (x,y) with
 | (TSBol false, TSBol false) -> false
 | (TSBol _, TSBol _) -> true
 | _ -> raise (UnexpectedType "Or function run over non-boolean elements")
 
 (*
-let sem_xor x y = match (x,y) with 
+let sem_xor x y = match (x,y) with
 | (TSBol true, TSBol false) -> true
 | (TSBol false, TSBol true) -> true
 | (TSBol _, TSBol _) -> true
@@ -47,7 +47,7 @@ let sem_xor x y = match (x,y) with
 
 
 let getBolBinOpFunction = function
-| BoolAnd -> sem_and 
+| BoolAnd -> sem_and
 | BoolOr -> sem_or
 
 let sem_sum x y = match (x,y) with
@@ -86,15 +86,15 @@ let getIntBinOpFunction = function
 | IntSum -> sem_sum
 | IndDiv -> sem_div
 | IntSub -> sem_sub
-| IntMod -> sem_mod 
+| IntMod -> sem_mod
 | IntProd -> sem_prod
 
 let getFltBinOpFunction = function
 | FltSum -> sem_sum
-| FltDiv -> sem_div 
+| FltDiv -> sem_div
 | FltSub -> sem_sub
-| FltProd -> sem_prod 
-| FltLog -> sem_log 
+| FltProd -> sem_prod
+| FltLog -> sem_log
 | FltExp -> sem_pow
 
 
@@ -117,7 +117,7 @@ let sem_sqrt x = match (x) with
 let getFltMonOpFunction = function
 | FltSin -> sem_sin
 | FltCos -> sem_cos
-| FltTan -> sem_tan 
+| FltTan -> sem_tan
 | FltSqrt -> sem_sqrt
 
 let sem_floor x = match (x) with
@@ -148,11 +148,11 @@ let sem_append x y = match (x,y) with
 | _ -> raise (UnexpectedType "Append function run over non-string elements")
 
 let sem_replace x y z = match (x,y,z) with
-| (TSStr a, TSStr b, TSStr c) -> TSStr (Str.global_replace (Str.regexp a) b c)
+| (TSStr a, TSStr b, TSStr c) -> TSStr (Str.global_replace (Str.regexp b) c a)
 | _ -> raise (UnexpectedType "Replace function run over non-string elements")
 
 let getStrBinOp = function
-| StrAppend -> sem_append 
+| StrAppend -> sem_append
 | StrSub -> fun x -> fun y-> sem_replace x (TSStr "") y
 
 
@@ -162,9 +162,9 @@ let sem_get x y = match (x,y) with
 | _ -> raise (UnexpectedType "Replace function run over non-sequence elements")
 
 let sem_rem x y = match (x,y) with
-| (TSStr a, TSInt b) -> TSStr 
+| (TSStr a, TSInt b) -> TSStr
                           (let len = String.length a in
-                           if (b >= len) then a else (if (b == 0) then (String.sub a 1 ((String.length a)-1)) else 
+                           if (b >= len) then a else (if (b == 0) then (String.sub a 1 ((String.length a)-1)) else
                                                       (if (b == (len -1)) then (String.sub a 0 ((String.length a)-1)) else (String.sub a 0 b)^(String.sub a (b+1) (len-b-1)))
                                                      )
                           )
@@ -191,7 +191,7 @@ let sem_cross x y = match (x,y) with
 | _ -> raise (UnexpectedType "Replace function run over non-sequence elements")
 
 let getListBinOpFunction = function
-| ListAppend -> sem_append 
+| ListAppend -> sem_append
 | ListCross -> sem_cross
 
 let sem_tail x = match x with
@@ -214,12 +214,16 @@ let sem_contains x y = match (x,y) with
 | (TSFFunc f, x) -> TSBol (List.exists (fun (z,_) -> z == x) f)
 | _ -> raise (UnexpectedType "Replace function run over non-sequence elements")
 
+let sem_replace x y z =
+  match (x,y,z) with
+  | (TSStr a, TSStr b, TSStr c) -> TSStr (Str.global_replace (Str.regexp b) c a)
+  | _ -> raise (UnexpectedType "Replace function run over non-sequence elements")
 
 let sem_set x y t = match (x,y,t) with
-| (TSStr a, TSInt b,TSStr c) -> TSStr 
+| (TSStr a, TSInt b,TSStr c) -> TSStr
                           (let len = String.length a in
-                           let charo = (String.make 1 (String.get c 0)) in 
-                           if (b >= len) then a else (if (b == 0) then charo^(String.sub a 1 ((String.length a)-1)) else 
+                           let charo = (String.make 1 (String.get c 0)) in
+                           if (b >= len) then a else (if (b == 0) then charo^(String.sub a 1 ((String.length a)-1)) else
                                                       (if (b == (len -1)) then (String.sub a 0 ((String.length a)-1))^charo else (String.sub a 0 b)^charo^(String.sub a (b+1) (len-b-1)))
                                                      )
                           )
@@ -233,16 +237,16 @@ let rec ffextend input output = function
 	| []        -> [(input,output)]
 	| (x,y)::tl -> if (x==input) then (input,output)::tl else (x,y)::(ffextend input output tl)
 
-let ffremove input ls = 
+let ffremove input ls =
 	List.filter (fun (x,y) -> not (input==x)) ls
 
-let rec ffcomp l1 l2 = 
+let rec ffcomp l1 l2 =
 	match l1 with
 	| []        -> l2
 	| (x,y)::tl -> ffcomp tl (ffextend x y l2)
 
 
-(** TODO: implementare la interpretazione della semantica delle funzioni *) 
+(** TODO: implementare la interpretazione della semantica delle funzioni *)
 
 
 
@@ -256,14 +260,14 @@ let explode s = List.init (String.length s) (fun x -> String.make 1 (String.get 
 let rec bool_cast (g:environment) = function
 | Var (Variable x) -> bool_cast g (get_environment_type g x)
 | TermBol _ as t -> t
-| TermInt 
+| TermInt
 
 
 let rec list_cast (g: environment) = function
 | Var (Variable x) -> list_cast g (get_environment_type g x)
 | TermStr x -> Termst (Lst (explode x))
 | TermLst _ as t -> t
-| _ as t -> TermLst (Lst t) 
+| _ as t -> TermLst (Lst t)
 
 let list_head (g: environment) = function
 | Lst [] -> TermBol (Bol false)
@@ -275,11 +279,11 @@ let list_at (g: environment) i = function
 let rec eval (g : environment) = function
 | Var (Variable x) -> get_environment_term g x
 | TermBol (Bol b) -> TSBol b
-| TermBol (t) -> eval g (TermBol (eval g t)) 
+| TermBol (t) -> eval g (TermBol (eval g t))
 | TermBol (BolBinOp (op,x,y)) -> (match (eval g (TermBol x), eval g (TermBol y)) with
-                                 | (TSBol true, TSBol true) -> 
-                                             
-                                             
+                                 | (TSBol true, TSBol true) ->
+
+
 
  Bol of bool
                  | BolCast of term
@@ -313,7 +317,7 @@ let rec eval (g : environment) = function
 
 | TermFFnc (FFncCast (TermFFnc t)) -> eval g (TermFFnc t)
 
-         
+
 let rec typeof (g : environment) = function
 | Var (Variable x) -> get_environment_type g x
 | TermBol _ -> TBol

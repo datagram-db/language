@@ -5,6 +5,7 @@ open TermSemantics
 
 exception UnexpectedCast of string
 exception UnbondedVariable of string
+exception LetInOverNotVariable
 
 (******************************************************************************)
 (**                Retrieving the free variables from a term                 **)
@@ -16,7 +17,6 @@ let rec fv acc = function
 | SBolNeg(x)
 | SFracToIntBinOp(_,x)
 | SFracMonOp(_,x)
-| SLstCast(x)
 | SLstMonOp(_,x)
 | SFRemove(_,x)
 | SLstHead(x) ->       remove_duplicates(fv acc x)
@@ -62,7 +62,6 @@ let rec subst orig repl = function
 | SBolNeg(x)           -> SBolNeg(subst orig repl x)
 | SFracToIntBinOp(t,x) -> SFracToIntBinOp(t, subst orig repl x)
 | SFracMonOp(t,x)      -> SFracMonOp(t, subst orig repl x)
-| SLstCast(x)          -> SLstCast(subst orig repl x)
 | SLstMonOp(t,x)       -> SLstMonOp(t, subst orig repl x)
 | SFRemove(t,x)        -> SFRemove(t, subst orig repl x)
 | SLstHead(x)          -> SLstHead(subst orig repl x)
@@ -117,7 +116,7 @@ let rec simplify_expression (ev: env_variable ref) (el: env_lets ref) = function
            (* *************************************************************** *)
            (*                          SSequence                              *)
            (* *************************************************************** *)
-           | SSequence []               -> SInt 0
+           | SSequence []               -> SNull
            | SSequence (hd::[])         -> let ev2 = ref !ev in (*Copying the elements that are within the block, so that it could be popped any time at the end of it *)
                                            let el2 = ref !el in
                                                  simplify_expression ev2 el2 hd
@@ -244,13 +243,17 @@ let rec simplify_expression (ev: env_variable ref) (el: env_lets ref) = function
            (* *************************************************************** *)
            | SBolBinOp(BoolAnd,x,y) -> (let xx = simplify_expression ev el x in
                                             let yy = simplify_expression ev el y in
-                                            let tt = SBolBinOp(BoolOr,xx,yy) in
+                                            let tt = SBolBinOp(BoolAnd,xx,yy) in
                                             match (xx,yy) with
-                                            | (SBol true, x)
-                                            | (x, SBol true) -> x
-                                            | (SBol false, x)
-                                            | (x, SBol false)-> SBol false
-                                            | _ -> tt
+                                            | (SBol true, a)
+                                            | (a, SBol true) -> a
+                                            | (SBol false, a)
+                                            | (a, SBol false)-> SBol false
+                                            | (a, SBolBinOp(BoolAnd,b,c)) -> if (a = b) then a else SBolBinOp(BoolAnd,SBolBinOp(BoolAnd,a,b),c)
+                                            | (a, SBolBinOp(BoolOr,b,c)) -> if (a = b) then a else simplify_expression ev el (SBolBinOp(BoolOr,SBolBinOp(BoolAnd,a,b),SBolBinOp(BoolAnd,a,c)))
+                                            | (a, SBolNeg(b)) when a=b -> SBol false
+                                            | (SBolNeg(a),b)  when a=b -> SBol false
+                                            |  _ -> if (x < y) then tt else SBolBinOp(BoolAnd,y,x)
                                            )
 
            | SBolBinOp(BoolOr,x,y) -> (let xx = simplify_expression ev el x in
@@ -261,7 +264,11 @@ let rec simplify_expression (ev: env_variable ref) (el: env_lets ref) = function
                                             | (x, SBol true) -> SBol true
                                             | (SBol false, x)
                                             | (x, SBol false)-> x
-                                            | _ -> tt
+                                            | (a, SBolNeg(b)) when a=b -> SBol true
+                                            | (SBolNeg(a),b)  when a=b -> SBol true
+                                            | (a, SBolBinOp(BoolOr,b,c)) -> SBolBinOp(BoolAnd,SBolBinOp(BoolOr,a,b),c)
+                                            | (a, SBolBinOp(BoolAnd,b,c)) -> simplify_expression ev el (SBolBinOp(BoolAnd,SBolBinOp(BoolOr,a,b),SBolBinOp(BoolOr,a,c)))
+                                            | _ -> if (x < y) then tt else SBolBinOp(BoolAnd,y,x)
                                            )
            (* *************************************************************** *)
            (* *************************************************************** *)
@@ -413,55 +420,7 @@ let rec simplify_expression (ev: env_variable ref) (el: env_lets ref) = function
                                                let bl = (List.sort compare b) in
                                                SBol (suplist_of bl al)
                | (SFunc(x,y), SFunc(z,t))   -> let tt2 = subst_var x z t in simplify_expression ev el (SBinCompBool(LEq,y,subst_var x z tt2))
-                   (* | (SBol _, SInt _)
-               | (SBol _, SFlt _)
-               | (SBol _, SStr _)
-               | (SBol _, SLst _)
-               | (SBol _, SFunc  _)
-               | (SBol _, SFFunc _)
-               | (SInt _, SBol _)
-               | (SInt _, SFlt _)
-               | (SInt _, SStr _)
-               | (SInt _, SLst _)
-               | (SInt _, SFunc  _)
-               | (SInt _, SFFunc _)
-               | (SFlt _, SInt _)
-               | (SFlt _, SBol _)
-               | (SFlt _, SStr _)
-               | (SFlt _, SLst _)
-               | (SFlt _, SFunc  _)
-               | (SFlt _, SFFunc _)
-               | (SStr _, SInt _)
-               | (SStr _, SBol _)
-               | (SStr _, SFlt _)
-               | (SStr _, SLst _)
-               | (SStr _, SFunc  _)
-               | (SStr _, SFFunc _)
-               | (SLst _, SInt _)
-               | (SLst _, SBol _)
-               | (SLst _, SFlt _)
-               | (SLst _, SStr _)
-               | (SLst _, SFunc  _)
-               | (SLst _, SFFunc _)
-               | (SFFunc _, SInt _)
-               | (SFFunc _, SBol _)
-               | (SFFunc _, SFlt _)
-               | (SFFunc _, SStr _)
-               | (SFFunc _, SFunc  _)
-               | (SFFunc _, SLst _)
-               | (SFunc _, SInt _)
-               | (SFunc _, SBol _)
-               | (SFunc _, SFlt _)
-               | (SFunc _, SStr _)
-               | (SFunc _, SFFunc  _)
-               | (SFunc _, SLst _)          -> SBol false
-               | (k,j)             when k=j -> SBol true
-
-               (* 2) Algebraic equivalences: commutativity *)
-               | (SIntBinOp(IntSum,x,y),SIntBinOp(IntSum,z,t))                     when (x=t && y=z) -> SBol true
-               | (SIntBinOp(IntProd,x,y),SIntBinOp(IntProd,z,t))                   when (x=t && y=z) -> SBol true
-               | (SFltBinOp(FltSum,x,y),SFltBinOp(FltSum,z,t))                     when (x=t && y=z) -> SBol true
-               | (SFltBinOp(FltProd,x,y),SFltBinOp(FltProd,z,t))                   when (x=t && y=z) -> SBol true*)
+               (* TODO: add some further rewritings  *)
                | _ -> tt
              )
            | SBinCompBool(Lt,x,y) -> simplify_expression ev el (SBolBinOp(BoolAnd,SBinCompBool(LEq,x,y),SBolNeg(SBinCompBool(Eq,x,y))))
@@ -475,10 +434,6 @@ let rec simplify_expression (ev: env_variable ref) (el: env_lets ref) = function
            | SFuncComp(f,g)             -> simplify_expression ev el (SFunc("x",SFunApply(f, SFunApply(g, SVar "x"))))
            | SLst(ls)                   ->                          SLst (List.map (simplify_expression ev el) ls)
            | SVar(x)                    ->                          resolve_variable_if_possible !ev !el x
-           | SLetIn(x,y,z)              -> begin
-                                                 el := (x,y)::!el;
-                                                 simplify_expression ev el z
-                                           end
            | SFunc(x,s)                 -> begin
                                                   ev := x::!ev;
                                                   SFunc(x,simplify_expression ev el s)
@@ -566,11 +521,9 @@ let rec simplify_expression (ev: env_variable ref) (el: env_lets ref) = function
 
 
 
-
            (* *************************************************************** *)
            (*                           SFltBinOp                             *)
            (* *************************************************************** *)
-
           | SFltBinOp(FltProd,x,SFltBinOp(FltExp,y,z))  -> simplify_expression ev el (SFltBinOp(FltProd,SFltBinOp(FltExp,y,z),x))
 
            (* 1) Algebraic Equivalences: distributivity *)
@@ -656,10 +609,62 @@ let rec simplify_expression (ev: env_variable ref) (el: env_lets ref) = function
                                             | (SFlt j, SFlt (i))  -> if (i = -.j) then SFlt (-.1.) else (if (i =j) then SFlt 1. else tt)
                                             | (j,k)               -> if (j =k) then SFlt 1. else simplify_expression ev el  (SFltBinOp(FltProd,x,SFltBinOp(FltDiv,(SFlt 1.),y)))
                                            )
-
            (* *************************************************************** *)
            (* *************************************************************** *)
 
+
+
+           (* *************************************************************** *)
+           (*                           SStrBinOp                             *)
+           (* *************************************************************** *)
+           | SStrBinOp(StrAppend, x, y) -> (let (xx,yy) = (simplify_expression ev el x,simplify_expression ev el y) in
+                                            match (xx,yy) with
+                                            | (SStr a, SStr "")
+                                            | (SStr "", SStr a) -> SStr a
+                                            | (SStr a, SStr b) -> SStr (a^b)
+                                            | _ -> SStrBinOp(StrAppend, xx, yy)
+                                           )
+           | SStrBinOp(StrSub, x, y) -> simplify_expression ev el (SStrReplace(x, SStrBinOp(StrAppend, SStr "^", y), SStr ""))
+           (* *************************************************************** *)
+           (* *************************************************************** *)
+
+
+
+           (* *************************************************************** *)
+           (*                          SStrReplace                            *)
+           (* *************************************************************** *)
+           | SStrReplace(x,y,z) -> (let (xx,yy,zz) = (simplify_expression ev el x, simplify_expression ev el y, simplify_expression ev el z) in
+                                   match (xx,yy,zz) with
+                                   | (SStr a, SStr b, SStr c) -> SStr (Str.global_replace (Str.regexp b) c a)
+                                   | _ -> SStrReplace(xx,yy,zz)
+                                  )
+           (* *************************************************************** *)
+           (* *************************************************************** *)
+
+           (* *************************************************************** *)
+           (*                          SFracMonOp                             *)
+           (* *************************************************************** *)
+           | SFracMonOp(FltSin, x) -> (match simplify_expression ev el x with
+             | SFlt y -> SFlt (sin y)
+             | _ as t -> SFracMonOp(FltSin,t))
+
+           | SFracMonOp(FltCos, x) -> (match simplify_expression ev el x with
+             | SFlt y -> SFlt (cos y)
+             | _ as t -> SFracMonOp(FltCos,t))
+
+           | SFracMonOp(FltTan, x) -> (match simplify_expression ev el x with
+               | SFlt y -> SFlt (tan y)
+               | _ as t -> SFracMonOp(FltTan,t))
+
+           | SFracMonOp(FltSqrt, x) -> (match simplify_expression ev el x with
+               | SFlt y -> SFlt (sqrt y)
+               | _ as t -> SFracMonOp(FltSqrt,t))
+           (* *************************************************************** *)
+           (* *************************************************************** *)
+
+
+
+                                             (* FltSin | FltCos | FltTan | FltSqrt *)
 
            (*| SFracToIntBinOp of flt_to_int_mon_op * term2
            | SFltBinOp of flt_bin_op * term2 * term2
@@ -691,10 +696,30 @@ let rec simplify_expression (ev: env_variable ref) (el: env_lets ref) = function
            | SLstContains of term2 * term2
            | SFFuncContains of term2 * term2
              | SBinCompBool of bin_comp_to_bool * term2 * term2*)
+
+
+           (* *************************************************************** *)
+           (*                            SLetIn                               *)
+           (* *************************************************************** *)
+           | SLetIn(x,y,z) -> begin
+               el := (x,simplify_expression ev el y)::!el;
+               simplify_expression ev el z
+             end
+           (* *************************************************************** *)
+           (* *************************************************************** *)
+
+           (* SFunApply *)
+           (* SFFunApply *)
+
+           (* *************************************************************** *)
+           (*                             SIfte                               *)
+           (* *************************************************************** *)
            | SIfte(x,y,z) -> (match simplify_expression ev el x with
                | SBol true -> simplify_expression ev el y
                | SBol false -> simplify_expression ev el z
                | _ -> SIfte(x, simplify_expression ev el y, simplify_expression ev el z))
+           (* *************************************************************** *)
+           (* *************************************************************** *)
            | _ as t -> t
 
 
@@ -703,3 +728,6 @@ let get_environment_type (g:environment) x = List.fold_left (fun z -> fun  (s,t,
 let get_environment_term (g:environment) x = List.fold_left (fun z -> fun  (s,t,b) -> if (s = x) then t else z) (SBol false) g
 let get_gamma_type (g:gamma) x = List.fold_left (fun z -> fun  (s,b) -> if (s = x) then b else z) TObj g
 *)
+
+
+let resolve_and_ignore = simplify_expression (ref []) (ref [])

@@ -13,5 +13,5 @@ Plugins: META (0.4), DevFiles (0.4)
 
 Library "languagelibrary"
  Path: src
- Modules: Basics, Term, Term2, Term2Operations, TermSemantics, Database
+ Modules: Basics, Term, Term2, Term2Operations, TermSemantics, Database, RelationalAlgebra
  BuildDepends: str

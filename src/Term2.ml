@@ -2,11 +2,12 @@ open Basics
 open Term
 
 type term2 = SBol of bool
-           | SInt of int 
+           | SInt of int
            | SFlt of float
            | SStr of string
-           | SLst of term2 list 
+           | SLst of term2 list
            | SVar of string
+           | SNull
            | SSequence of term2 list
            | SCast of basic_types * term2
            | SBolBinOp of bol_bin_op * term2 * term2
@@ -23,7 +24,6 @@ type term2 = SBol of bool
            | SStrReplace of term2 * term2 * term2
            | SStrIntBinOp of str_int_bin_op * term2 * term2
            | SStrSet of term2 * term2 * term2
-           | SLstCast of term2
            | SStrSplit of term2 * term2
            | SLstBinOp of list_bin_op * term2 * term2
            | SLstMonOp of list_mon_op * term2
@@ -37,7 +37,7 @@ type term2 = SBol of bool
            | SFFunc of (term2 * term2) list
            | SFExtend of term2 * term2 * term2
            | SFRemove of term2 * term2
-           | SFFuncComp of term2 * term2    
+           | SFFuncComp of term2 * term2
            | SLstHead of term2
            | SLstLFold of term2 * term2 * term2
            | SLstAt of term2 * term2
@@ -47,7 +47,7 @@ type term2 = SBol of bool
            | SIfte of term2 * term2 * term2
 
 (** Simplifying the term into a better representation, even though it is less typed *)
-let to_term2 x = 
+let to_term2 x =
 	let rec rewrite = function
         | Var (Variable x) -> SVar x
 	| Sequences s -> SSequence (List.map rewrite s)
@@ -60,7 +60,7 @@ let to_term2 x =
 	| TermFFnc x -> (rewrite_ffunc x)
 	| LstHead x -> SLstHead (rewrite_lst x )
 	| LstLFold(t,f,l) -> SLstLFold((rewrite t  ),(rewrite f  ),(rewrite_lst  l  ))
-	| LstAt(l,i) -> SLstAt((rewrite_lst  l  ),(rewrite_int  i )) 
+	| LstAt(l,i) -> SLstAt((rewrite_lst  l  ),(rewrite_int  i ))
 	| FunApply(f,t) -> SFunApply((rewrite_func  f  ),(rewrite  t  ))
 	| FFunApply(f,t) -> SFFunApply((rewrite_ffunc f  ),(rewrite  t))
 	| LetIn(Variable v,t,m) -> SLetIn(v, (rewrite  t  ), (rewrite  m))
@@ -68,7 +68,7 @@ let to_term2 x =
        and rewrite_bool  = function
         | Bol x -> SBol x
 	| BolCast x -> SCast (TBol, rewrite x)
-	| BolBinOp (z,y,x) -> SBolBinOp(z,(rewrite_bool x),(rewrite_bool y)) 
+	| BolBinOp (z,y,x) -> SBolBinOp(z,(rewrite_bool x),(rewrite_bool y))
 	| BolNeg (x) -> SBolNeg(rewrite_bool x)
 	| StrContains(x,y) -> SStrContains((rewrite_str x),(rewrite_str y))
 	| LstContains(x,y) -> SLstContains((rewrite_lst x),(rewrite y))
@@ -114,5 +114,3 @@ let to_term2 x =
 	| FRemove(x,y) -> SFRemove(rewrite x, rewrite_ffunc y)
 	| FFuncComp(x,y) -> SFFuncComp(rewrite_ffunc x, rewrite_ffunc y)
 in rewrite x
-    
-
